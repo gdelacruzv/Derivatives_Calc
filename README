@@ -1,0 +1,41 @@
+he app is designed as a multipurpose financial tool with three main functions, and to launch it in Streamlit it needs to:
+
+Serve as a TRS (Total Return Swap) Settlement Calculator:
+
+Interest Leg Calculation:
+It calculates the accrued interest on the financing leg of a TRS using the ISDA geometric compounding method. This involves fetching daily interest rate data from FRED (using a specific floating index such as SOFR or Fed Funds), applying reset frequencies (daily, monthly, quarterly, or semi-annually), and computing day count fractions to arrive at an accrual table that shows daily factors and cumulative interest (see Interest_leg.py and helper_functions.py ​
+, ​
+).
+
+Asset Leg Calculation:
+It computes the asset leg (total return) based on the product type:
+
+For bonds, the return is based on price changes relative to a notional adjusted by the initial price.
+
+For equities and commodities, it uses the change in prices over time multiplied by the number of units (see return_leg.py ​
+).
+
+User Interaction:
+The app provides an interactive UI for users to select the product type (Bond, Equity, or Commodity), input trade dates, notional amounts, spreads, reset frequencies, and other parameters. After calculations, it displays results (asset return, interest accrued, net settlement) and an accrual breakdown table with an option to download it as CSV (see app.py under the "Total Return Swaps Calculator" tab ​
+).
+
+Display an Economic Dashboard:
+
+Benchmark Rates and Historical Trends:
+It fetches and displays current benchmark rates (like SOFR and effective Fed Funds Rate) from FRED. It also shows historical trends using Altair charts for visual comparison.
+
+U.S. Treasury Yield Curve:
+The app retrieves the latest Treasury yield curve data from an XML source, processes it, and then plots the curve to provide insights into various maturities (see app.py under the "Economic Dashboard" tab ​
+).
+
+Provide FX Derivatives Valuation:
+
+FX Forward Contracts:
+Users can input forward contract details (start date, tenor, basis spread, notional, etc.). The app fetches the current spot rate from Yahoo Finance and treasury rates from the U.S. Treasury website, then calculates the forward rate using the premium/discount method.
+
+FX Currency Swaps:
+It allows users to choose their position (e.g., Long USD/Short EUR), then computes the net difference between spot and forward transactions, displaying the results in both domestic and foreign currency terms.
+
+Historical Exchange Rate Chart:
+A historical chart of the EUR/USD exchange rate is plotted to provide context for the forward and swap calculations (see app.py under the "FX Derivatives" tab ​
+).
