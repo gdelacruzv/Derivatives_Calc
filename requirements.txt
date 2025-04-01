@@ -18,15 +18,7 @@ Pillow==9.5.0
 ply==3.11
 protobuf==3.20.3
 pyasn1-modules==0.2.8
-pycurl==7.45.2
-PyDispatcher==2.0.5
-pyls-spyder==0.4.0
-Pympler==1.1
-pynndescent==0.5.13
-PyQt5==5.15.10
-PyQtWebEngine==5.15.6
-python-lsp-jsonrpc==1.0.0
-pywin32==305.1
+
 quantics==0.2.0
 requests==2.32.3
 requests-cache==1.2.1
