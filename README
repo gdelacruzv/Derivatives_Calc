@@ -1,4 +1,4 @@
-he app is designed as a multipurpose financial tool with three main functions, and to launch it in Streamlit it needs to:
+The app is designed as a multipurpose financial tool with three main functions, and to launch it in Streamlit it needs to:
 
 Serve as a TRS (Total Return Swap) Settlement Calculator:
 
