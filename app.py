@@ -26,7 +26,7 @@ fred = Fred(api_key='983188cadf286e4e553982bf2b9b4a1c')
 # Add a header title and a link to your LinkedIn profile at the very top.
 st.title("Gil De La Cruz Vazquez Derivatives Portofolio")
 st.markdown("[LinkedIn](https://www.linkedin.com/in/gil-de-la-cruz-vazquez-62049b125/)")
-
+st.markdown("Sources: US Federal Reserve, European Central Bank & Yahoo Finance")
 # Create tabs for TRS Calculator, Economic Dashboard, and FX Forward Valuation
 tabs = st.tabs(["FX Derivatives", "Economic Dashboard", "Total Return Swaps Calculator"])
 
