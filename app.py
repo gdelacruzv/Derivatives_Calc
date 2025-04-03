@@ -368,6 +368,7 @@ with tabs[1]:
 # FX Derivatives Tab
 ##################################
 from dateutil.relativedelta import relativedelta
+import numpy as np  # Ensure numpy is imported
 
 with tabs[0]:
     st.title("FX Derivatives")
@@ -402,127 +403,178 @@ with tabs[0]:
         notional_currency = st.selectbox("Notional Currency", options=["USD", "EUR"], key="fwd_currency")
     
         st.markdown("### Fetching Data")
-        # Fetch spot rate from Yahoo Finance (assumed to be in USD/EUR terms where 1 USD = X EUR)
+        # Fetch spot rate from Yahoo Finance
         spot_data = fetch_yfinance_prices("EURUSD=X",
                                           (forward_start_date - pd.Timedelta(days=5)).strftime("%Y-%m-%d"),
                                           forward_start_date.strftime("%Y-%m-%d"))
         if spot_data is not None and not spot_data.empty:
-             if "Adj Close" in spot_data.columns:
-                 fetched_spot = float(spot_data["Adj Close"].iloc[-1])
-             elif "Close" in spot_data.columns:
-                 fetched_spot = float(spot_data["Close"].iloc[-1])
-             else:
-                 fetched_spot = None
+            if "Adj Close" in spot_data.columns:
+                fetched_spot = float(spot_data["Adj Close"].iloc[-1])
+            elif "Close" in spot_data.columns:
+                fetched_spot = float(spot_data["Close"].iloc[-1])
+            else:
+                fetched_spot = None
         else:
-             fetched_spot = None
+            fetched_spot = None
     
         if fetched_spot is None:
-             st.error("Failed to fetch spot rate from Yahoo Finance.")
+            st.error("Failed to fetch spot rate from Yahoo Finance.")
         else:
-             spot_rate = st.number_input("Spot Rate (EUR/USD)", value=fetched_spot, format="%.4f", key="fwd_spot")
-             st.metric("Spot Rate (EUR/USD)", f"{spot_rate:.4f}")
+            spot_rate = st.number_input("Spot Rate (EUR/USD)", value=fetched_spot, format="%.4f", key="fwd_spot")
+            st.metric("Spot Rate (EUR/USD)", f"{spot_rate:.4f}")
     
         # Fetch US Treasury par rate for the selected tenor
         treasury_field_map = {"1M": "BC_1MONTH", "3M": "BC_3MONTH", "6M": "BC_6MONTH", "1Y": "BC_1YEAR"}
         treasury_url = ("https://home.treasury.gov/resource-center/data-chart-center/interest-rates/pages/"
                         "xmlview?data=daily_treasury_yield_curve&field_tdr_date_value=2025")
         try:
-             response = requests.get(treasury_url)
-             response.raise_for_status()
-             root = ET.fromstring(response.content)
-             ns_atom = '{http://www.w3.org/2005/Atom}'
-             ns_m = '{http://schemas.microsoft.com/ado/2007/08/dataservices/metadata}'
-             ns_d = '{http://schemas.microsoft.com/ado/2007/08/dataservices}'
-             yield_data = []
-             for entry in root.findall(f'{ns_atom}entry'):
-                 content = entry.find(f'{ns_atom}content')
-                 if content is None:
-                     continue
-                 props = content.find(f'{ns_m}properties')
-                 if props is None:
-                     continue
-                 date_elem = props.find(f'{ns_d}NEW_DATE')
-                 if date_elem is None or not date_elem.text:
-                     continue
-                 row = {"NEW_DATE": date_elem.text}
-                 field = treasury_field_map.get(selected_tenor)
-                 elem = props.find(f'{ns_d}{field}')
-                 if elem is not None and elem.text is not None:
-                     row[field] = float(elem.text)
-                 yield_data.append(row)
-             treasury_df = pd.DataFrame(yield_data)
-             treasury_df["NEW_DATE"] = pd.to_datetime(treasury_df["NEW_DATE"])
-             if treasury_df.empty:
-                 us_rate = None
-             else:
-                 latest_us_row = treasury_df.sort_values("NEW_DATE").iloc[-1]
-                 us_rate = latest_us_row[treasury_field_map[selected_tenor]]
+            response = requests.get(treasury_url)
+            response.raise_for_status()
+            root = ET.fromstring(response.content)
+            ns_atom = '{http://www.w3.org/2005/Atom}'
+            ns_m = '{http://schemas.microsoft.com/ado/2007/08/dataservices/metadata}'
+            ns_d = '{http://schemas.microsoft.com/ado/2007/08/dataservices}'
+            yield_data = []
+            for entry in root.findall(f'{ns_atom}entry'):
+                content = entry.find(f'{ns_atom}content')
+                if content is None:
+                    continue
+                props = content.find(f'{ns_m}properties')
+                if props is None:
+                    continue
+                date_elem = props.find(f'{ns_d}NEW_DATE')
+                if date_elem is None or not date_elem.text:
+                    continue
+                row = {"NEW_DATE": date_elem.text}
+                field = treasury_field_map.get(selected_tenor)
+                elem = props.find(f'{ns_d}{field}')
+                if elem is not None and elem.text is not None:
+                    row[field] = float(elem.text)
+                yield_data.append(row)
+            treasury_df = pd.DataFrame(yield_data)
+            treasury_df["NEW_DATE"] = pd.to_datetime(treasury_df["NEW_DATE"])
+            if treasury_df.empty:
+                us_rate = None
+            else:
+                latest_us_row = treasury_df.sort_values("NEW_DATE").iloc[-1]
+                us_rate = latest_us_row[treasury_field_map[selected_tenor]]
         except Exception as e:
-             st.error(f"Failed to fetch US Treasury par rate: {e}")
-             us_rate = None
+            st.error(f"Failed to fetch US Treasury par rate: {e}")
+            us_rate = None
     
         if us_rate is None:
-             st.error("US Treasury par rate not available.")
+            st.error("US Treasury par rate not available.")
         else:
-             st.metric(f"US Treasury {selected_tenor} Rate", f"{us_rate:.4f}")
+            st.metric(f"US Treasury {selected_tenor} Rate", f"{us_rate:.4f}")
     
         from ecbdata import ecbdata
         ecb_series_map = {
-             "1M": "FM.M.U2.EUR.RT.MM.EURIBOR1MD_.HSTA",
-             "3M": "FM.M.U2.EUR.RT.MM.EURIBOR3MD_.HSTA",
-             "6M": "FM.M.U2.EUR.RT.MM.EURIBOR6MD_.HSTA",
-             "1Y": "FM.M.U2.EUR.RT.MM.EURIBOR1YD_.HSTA"
+            "1M": "FM.M.U2.EUR.RT.MM.EURIBOR1MD_.HSTA",
+            "3M": "FM.M.U2.EUR.RT.MM.EURIBOR3MD_.HSTA",
+            "6M": "FM.M.U2.EUR.RT.MM.EURIBOR6MD_.HSTA",
+            "1Y": "FM.M.U2.EUR.RT.MM.EURIBOR1YD_.HSTA"
         }
         try:
-             df_ecb = ecbdata.get_series(ecb_series_map[selected_tenor],
-                                         start=forward_start_date.strftime("%Y-%m"),
-                                         detail="dataonly")
-             df_ecb["TIME_PERIOD"] = pd.to_datetime(df_ecb["TIME_PERIOD"])
-             if df_ecb.empty:
-                 euribor_rate = None
-             else:
-                 df_ecb = df_ecb.sort_values("TIME_PERIOD")
-                 euribor_rate = df_ecb.iloc[-1]["OBS_VALUE"]
+            df_ecb = ecbdata.get_series(ecb_series_map[selected_tenor],
+                                        start=forward_start_date.strftime("%Y-%m"),
+                                        detail="dataonly")
+            df_ecb["TIME_PERIOD"] = pd.to_datetime(df_ecb["TIME_PERIOD"])
+            if df_ecb.empty:
+                euribor_rate = None
+            else:
+                df_ecb = df_ecb.sort_values("TIME_PERIOD")
+                euribor_rate = df_ecb.iloc[-1]["OBS_VALUE"]
         except Exception as e:
-             st.error(f"Failed to fetch Euribor rate from ECB using ecbdata: {e}")
-             euribor_rate = None
+            st.error(f"Failed to fetch Euribor rate from ECB using ecbdata: {e}")
+            euribor_rate = None
     
         if euribor_rate is None:
-             st.error("Euribor rate not available.")
+            st.error("Euribor rate not available.")
         else:
-             st.metric(f"Euribor {selected_tenor} Rate", f"{euribor_rate:.4f}")
+            st.metric(f"Euribor {selected_tenor} Rate", f"{euribor_rate:.4f}")
     
         if spot_rate is not None and us_rate is not None and euribor_rate is not None:
-             # Calculate the forward rate using the Premium/Discount method
-             interest_diff = (euribor_rate - us_rate) / 100  
-             premium = spot_rate * (interest_diff * (days_contract / 360))
-             calculated_forward = spot_rate + premium + basis_spread
-             st.markdown("### FX Forward Contract Valuation")
-             st.write(f"**Forward Start Date:** {forward_start_date.strftime('%Y-%m-%d')}")
-             st.write(f"**Maturity Date:** {maturity_date.strftime('%Y-%m-%d')}")
-             st.write(f"**Tenor:** {selected_tenor} ({days_contract} days, {T:.4f} years)")
-             st.write(f"**Spot Rate (EUR/USD):** {spot_rate:.4f}")
-             st.write(f"**US Treasury {selected_tenor} Rate:** {us_rate:.4f}")
-             st.write(f"**Euribor {selected_tenor} Rate:** {euribor_rate:.4f}")
-             st.write(f"**Interest Rate Differential (EUR - USD):** {interest_diff:.4f}")
-             st.write(f"**Premium/Discount:** {premium:.4f}")
-             st.write(f"**Basis Spread:** {basis_spread:.4f}")
-             st.write(f"**Calculated Forward Rate (EUR/USD):** {calculated_forward:.4f}")
+            # Calculate the forward rate using the Premium/Discount method
+            interest_diff = (euribor_rate - us_rate) / 100  
+            premium = spot_rate * (interest_diff * (days_contract / 360))
+            calculated_forward = spot_rate + premium + basis_spread
+            st.markdown("### FX Forward Contract Valuation")
+            st.write(f"**Forward Start Date:** {forward_start_date.strftime('%Y-%m-%d')}")
+            st.write(f"**Maturity Date:** {maturity_date.strftime('%Y-%m-%d')}")
+            st.write(f"**Tenor:** {selected_tenor} ({days_contract} days, {T:.4f} years)")
+            st.write(f"**Spot Rate (EUR/USD):** {spot_rate:.4f}")
+            st.write(f"**US Treasury {selected_tenor} Rate:** {us_rate:.4f}")
+            st.write(f"**Euribor {selected_tenor} Rate:** {euribor_rate:.4f}")
+            st.write(f"**Interest Rate Differential (EUR - USD):** {interest_diff:.4f}")
+            st.write(f"**Premium/Discount:** {premium:.4f}")
+            st.write(f"**Basis Spread:** {basis_spread:.4f}")
+            st.write(f"**Calculated Forward Rate (EUR/USD):** {calculated_forward:.4f}")
+             
+            if notional_currency == "USD":
+                spot_eur = notional_value / spot_rate
+                forward_eur = notional_value / calculated_forward
+                st.write(f"**USD Notional:** ${notional_value:,.2f}")
+                st.write(f"**Spot Equivalent in EUR:** €{spot_eur:,.2f}")
+                st.write(f"**Forward Equivalent in EUR:** €{forward_eur:,.2f}")
+                st.write(f"**Difference (Forward vs Spot):** €{(forward_eur - spot_eur):,.2f}")
+            else:
+                spot_usd = notional_value * spot_rate
+                forward_usd = notional_value * calculated_forward
+                st.write(f"**EUR Notional:** €{notional_value:,.2f}")
+                st.write(f"**Spot Equivalent in USD:** ${spot_usd:,.2f}")
+                st.write(f"**Forward Equivalent in USD:** ${forward_usd:,.2f}")
+                st.write(f"**Difference (Forward vs Spot):** ${forward_usd - spot_usd:,.2f}")
+             
+            # Add a button to trigger the Monte Carlo VaR calculation
+            if st.button("Calculate Monte Carlo VaR for FX Forward"):
+                # Fetch historical EUR/USD data for the past year for volatility estimation
+                var_hist_data = fetch_yfinance_prices(
+                    "EURUSD=X",
+                    (forward_start_date - pd.Timedelta(days=365)).strftime("%Y-%m-%d"),
+                    forward_start_date.strftime("%Y-%m-%d")
+                )
     
-             if notional_currency == "USD":
-                 spot_eur = notional_value / spot_rate
-                 forward_eur = notional_value / calculated_forward
-                 st.write(f"**USD Notional:** ${notional_value:,.2f}")
-                 st.write(f"**Spot Equivalent in EUR:** €{spot_eur:,.2f}")
-                 st.write(f"**Forward Equivalent in EUR:** €{forward_eur:,.2f}")
-                 st.write(f"**Difference (Forward vs Spot):** €{(forward_eur - spot_eur):,.2f}")
-             else:
-                 spot_usd = notional_value * spot_rate
-                 forward_usd = notional_value * calculated_forward
-                 st.write(f"**EUR Notional:** €{notional_value:,.2f}")
-                 st.write(f"**Spot Equivalent in USD:** ${spot_usd:,.2f}")
-                 st.write(f"**Forward Equivalent in USD:** ${forward_usd:,.2f}")
-                 st.write(f"**Difference (Forward vs Spot):** ${forward_usd - spot_usd:,.2f}")
+                if var_hist_data is None or var_hist_data.empty:
+                    st.error("Historical data not available for Monte Carlo VaR calculation.")
+                else:
+                    # Choose a price column (prefer 'Adj Close' if available)
+                    if "Adj Close" in var_hist_data.columns:
+                        prices = var_hist_data["Adj Close"]
+                    elif "Close" in var_hist_data.columns:
+                        prices = var_hist_data["Close"]
+                    else:
+                        st.error("No suitable price column found in historical data.")
+                        prices = None
+    
+                    if prices is not None:
+                        # Calculate daily log returns and daily volatility
+                        returns = np.log(prices / prices.shift(1)).dropna()
+                        daily_vol = returns.std()
+                        sigma_annual = float(daily_vol * np.sqrt(252))  # Convert to float
+                        T_val = float(T)  # Ensure T is a float
+                        
+                        # Convert spot_rate and calculated_forward to floats
+                        spot_rate_val = float(spot_rate)
+                        calculated_forward_val = float(calculated_forward)
+                        
+                        # Perform Monte Carlo simulation
+                        N = 10000  # Number of simulations
+                        simulated_Z = np.random.normal(0, 1, N)
+                        simulated_final_spot = spot_rate_val * np.exp(-0.5 * sigma_annual**2 * T_val + sigma_annual * np.sqrt(T_val) * simulated_Z)
+                        
+                        # Calculate profit/loss for each simulation
+                        pl = notional_value * (simulated_final_spot - calculated_forward_val)
+                                    
+                        # Allow the user to select a confidence level for VaR
+                        var_confidence = st.selectbox("Select VaR Confidence Level for Monte Carlo", options=[0.90, 0.95, 0.99], index=1)
+                        percentile = (1 - var_confidence) * 100  # e.g., 5 for 95% confidence
+            
+                        # VaR is defined as the (negative) value at the chosen percentile
+                        var_value = -np.percentile(pl, percentile)
+            
+                        st.markdown("### Monte Carlo VaR for FX Forward")
+                        st.write(f"**Estimated Annualized Volatility:** {sigma_annual:.4f}")
+                        st.write(f"**Monte Carlo VaR at {int(var_confidence*100)}% confidence over {days_contract} days:** {var_value:,.2f} {notional_currency}")
     
     elif derivative_type == "FX Currency Swap":
         st.markdown("#### FX Currency Swap Valuation")
@@ -555,23 +607,10 @@ with tabs[0]:
         forward_rate_swap = st.number_input("Forward Rate (USD/EUR)", value=0.7163, format="%.4f", key="swap_forward")
     
         st.markdown("### Currency Swap Valuation")
-        # In a currency swap, the spot and forward legs occur simultaneously.
-        # The calculation is as follows:
-        # For USD notional:
-        #    - At swap_date, euros paid = USD notional × spot_rate_swap
-        #    - At forward_date, euros received = USD notional × forward_rate_swap
-        #    - The net difference (in euros) = (forward_rate_swap - spot_rate_swap) × USD notional
-        #
-        # For EUR notional:
-        #    - At swap_date, dollars received = EUR notional / spot_rate_swap
-        #    - At forward_date, dollars paid = EUR notional / forward_rate_swap
-        #    - The net difference (in dollars) = EUR notional × (1/forward_rate_swap - 1/spot_rate_swap)
-    
         if notional_currency_swap == "USD":
             spot_eur_swap = notional_value_swap * spot_rate_swap
             forward_eur_swap = notional_value_swap * forward_rate_swap
             net_diff_eur_swap = forward_eur_swap - spot_eur_swap
-            # If the user selects the opposite position, reverse the sign.
             if position == "Long EUR / Short USD":
                 net_diff_eur_swap = -net_diff_eur_swap
             net_diff_usd_swap = net_diff_eur_swap / forward_rate_swap
@@ -580,7 +619,7 @@ with tabs[0]:
             st.write(f"**Forward Transaction (EUR received):** €{forward_eur_swap:,.2f}")
             st.write(f"**Net Difference (EUR):** €{net_diff_eur_swap:,.2f}")
             st.write(f"**Net Difference (USD equivalent):** ${net_diff_usd_swap:,.2f}")
-        else:  # Notional in EUR
+        else:
             spot_usd_swap = notional_value_swap / spot_rate_swap
             forward_usd_swap = notional_value_swap / forward_rate_swap
             net_diff_usd_swap = forward_usd_swap - spot_usd_swap
@@ -591,9 +630,8 @@ with tabs[0]:
             st.write(f"**Forward Transaction (USD paid):** ${forward_usd_swap:,.2f}")
             st.write(f"**Net Difference (USD):** ${net_diff_usd_swap:,.2f}")
     
-    # New: Plot Historical EUR/USD Exchange Rate for the FX Derivatives tab
+    # Plot Historical EUR/USD Exchange Rate
     st.markdown("### Historical EUR/USD Exchange Rate")
-    # Use a default range of the last 1 year
     hist_start_date = date.today() - relativedelta(years=1)
     hist_end_date = date.today()
     st.write(f"Plotting data from {hist_start_date.strftime('%Y-%m-%d')} to {hist_end_date.strftime('%Y-%m-%d')}")
@@ -601,11 +639,11 @@ with tabs[0]:
                                       hist_start_date.strftime("%Y-%m-%d"),
                                       hist_end_date.strftime("%Y-%m-%d"))
     if hist_data is not None and not hist_data.empty:
-         if "Close" in hist_data.columns:
-             st.line_chart(hist_data["Close"])
-         elif "Adj Close" in hist_data.columns:
-             st.line_chart(hist_data["Adj Close"])
-         else:
-             st.error("Historical data does not contain 'Close' or 'Adj Close' column.")
+        if "Close" in hist_data.columns:
+            st.line_chart(hist_data["Close"])
+        elif "Adj Close" in hist_data.columns:
+            st.line_chart(hist_data["Adj Close"])
+        else:
+            st.error("Historical data does not contain 'Close' or 'Adj Close' column.")
     else:
-         st.error("Failed to fetch historical EUR/USD data from Yahoo Finance.")
+        st.error("Failed to fetch historical EUR/USD data from Yahoo Finance.")
