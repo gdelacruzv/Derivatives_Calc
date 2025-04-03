@@ -28,6 +28,8 @@ st.title("Gil De La Cruz Vazquez Derivatives Portofolio")
 st.markdown("[LinkedIn](https://www.linkedin.com/in/gil-de-la-cruz-vazquez-62049b125/)")
 st.markdown("Sources: US Federal Reserve, European Central Bank & Yahoo Finance")
 # Create tabs for TRS Calculator, Economic Dashboard, and FX Forward Valuation
+
+# Create tabs for TRS Calculator, Economic Dashboard, and FX Forward Valuation
 tabs = st.tabs(["FX Derivatives", "Economic Dashboard", "Total Return Swaps Calculator"])
 
 ##################################
